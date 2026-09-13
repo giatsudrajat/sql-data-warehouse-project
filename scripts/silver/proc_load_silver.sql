@@ -404,7 +404,11 @@ BEGIN
             id,
             cat,
             subcat,
-            maintenance
+            CASE
+                WHEN UPPER(TRIM(REPLACE(maintenance, CHAR(13), ''))) = 'YES' THEN 'Yes'
+                WHEN UPPER(TRIM(REPLACE(maintenance, CHAR(13), ''))) = 'NO' THEN 'No'
+                ELSE 'unknown'
+            END AS maintenance
         FROM bronze.erp_px_cat_g1v2;
 
         SET @end_time = GETDATE();
