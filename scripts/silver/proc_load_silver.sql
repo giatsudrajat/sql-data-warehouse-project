@@ -190,6 +190,7 @@ BEGIN
                 CASE
                     WHEN sls_order_dt IS NULL
                       OR sls_order_dt = 0
+                        OR LEN(CONVERT(VARCHAR(8), sls_order_dt)) != 8
                         THEN NULL
                     ELSE TRY_CONVERT(
                         DATE,
@@ -202,6 +203,7 @@ BEGIN
                 CASE
                     WHEN sls_ship_dt IS NULL
                       OR sls_ship_dt = 0
+                        OR LEN(CONVERT(VARCHAR(8), sls_ship_dt)) != 8
                         THEN NULL
                     ELSE TRY_CONVERT(
                         DATE,
@@ -214,6 +216,7 @@ BEGIN
                 CASE
                     WHEN sls_due_dt IS NULL
                       OR sls_due_dt = 0
+                        OR LEN(CONVERT(VARCHAR(8), sls_due_dt)) != 8
                         THEN NULL
                     ELSE TRY_CONVERT(
                         DATE,
@@ -252,8 +255,17 @@ BEGIN
             sls_ord_num,
             sls_prd_key,
             sls_cust_id,
-            sls_order_dt,
-            sls_ship_dt,
+            CASE
+                 WHEN sls_order_dt > sls_ship_dt
+                   OR sls_order_dt > sls_due_dt
+                     THEN NULL
+                 ELSE sls_order_dt
+            END AS sls_order_dt,
+            CASE
+                 WHEN sls_ship_dt > sls_due_dt
+                     THEN NULL
+                 ELSE sls_ship_dt
+            END AS sls_ship_dt,
             sls_due_dt,
 
             -- Recalculate sales if missing, invalid,
@@ -400,6 +412,7 @@ BEGIN
             subcat,
             maintenance
         )
+
         SELECT
             id,
             cat,
@@ -454,5 +467,6 @@ BEGIN
 END;
 GO
 
-EXEC silver.load_silver;
-GO
+
+
+
