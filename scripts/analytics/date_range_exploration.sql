@@ -3,13 +3,7 @@
 Date Range Exploration
 ===============================================================================
 Purpose:
-    Explore the date coverage of sales data and customer birthdates.
-
-Analysis:
-    - Identify the first and last order dates.
-    - Calculate the order date range in months.
-    - Identify the oldest and youngest customer birthdates.
-    - Calculate customer ages based on completed birthdays.
+    Explore date coverage and identify potential date-related data quality issues.
 ===============================================================================
 */
 
@@ -30,11 +24,44 @@ FROM gold.fact_sales;
 
 
 -- ============================================================================
--- Customer Age Range
+-- Sales Date Coverage
+-- ============================================================================
+
+SELECT
+    COUNT(DISTINCT YEAR(order_date)) AS number_of_years,
+    COUNT(DISTINCT FORMAT(order_date, 'yyyy-MM')) AS number_of_months
+FROM gold.fact_sales
+WHERE order_date IS NOT NULL;
+
+
+-- ============================================================================
+-- Sales Date Quality Check
+-- ============================================================================
+
+SELECT
+    COUNT(*) AS total_rows,
+    COUNT(order_date) AS rows_with_order_date,
+    COUNT(*) - COUNT(order_date) AS rows_with_missing_order_date
+FROM gold.fact_sales;
+
+
+-- ============================================================================
+-- Future Order Date Check
+-- ============================================================================
+
+SELECT
+    COUNT(*) AS future_order_count
+FROM gold.fact_sales
+WHERE order_date > GETDATE();
+
+
+-- ============================================================================
+-- Customer Birthdate Range
 -- ============================================================================
 
 SELECT
     MIN(birthdate) AS oldest_birthdate,
+
     DATEDIFF(
         YEAR,
         MIN(birthdate),
@@ -51,6 +78,7 @@ SELECT
       END AS oldest_age,
 
     MAX(birthdate) AS youngest_birthdate,
+
     DATEDIFF(
         YEAR,
         MAX(birthdate),
@@ -65,4 +93,16 @@ SELECT
             THEN 1
         ELSE 0
       END AS youngest_age
+
+FROM gold.dim_customers;
+
+
+-- ============================================================================
+-- Customer Birthdate Quality Check
+-- ============================================================================
+
+SELECT
+    COUNT(*) AS total_customers,
+    COUNT(birthdate) AS customers_with_birthdate,
+    COUNT(*) - COUNT(birthdate) AS customers_with_missing_birthdate
 FROM gold.dim_customers;
