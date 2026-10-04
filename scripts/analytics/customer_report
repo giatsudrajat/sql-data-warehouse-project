@@ -14,7 +14,7 @@ Purpose:
     - Average monthly spend
 
 Final Grain:
-    One row per customer.
+    One row per customer_key.
 
 Database:
     Microsoft SQL Server / T-SQL
@@ -22,23 +22,35 @@ Database:
 Business Assumptions:
     - order_number uniquely identifies a business order.
     - fact_sales may contain multiple rows per order.
+    - Sales records are retained even when no matching customer dimension
+      record exists.
     - lifespan_months is inclusive, so activity within one calendar month
       produces a lifespan of 1 month.
 ===============================================================================
 */
+
+-- ============================================================================
+-- Create Report: gold.report_customer
+-- ============================================================================
 
 CREATE OR ALTER VIEW gold.report_customer
 AS
 
 WITH sales_base AS
 (
+/*-----------------------------------------------------------------------------
+1) Base Query: Retrieve sales activity and customer attributes
+-----------------------------------------------------------------------------*/
     SELECT
         fs.order_number,
         fs.product_key,
         fs.order_date,
         fs.sales_amount,
         fs.quantity,
-        c.customer_key,
+
+        -- Use the fact-side key so unmatched sales remain independently grouped.
+        fs.customer_key,
+
         c.customer_number,
         CONCAT(c.first_name, ' ', c.last_name) AS customer_name,
 
@@ -64,6 +76,9 @@ WITH sales_base AS
 
 customer_aggregation AS
 (
+/*-----------------------------------------------------------------------------
+2) Customer Aggregation: Summarize metrics at customer grain
+-----------------------------------------------------------------------------*/
     SELECT
         customer_key,
         customer_number,
@@ -95,6 +110,9 @@ customer_aggregation AS
         age
 )
 
+/*-----------------------------------------------------------------------------
+3) Final Report: Add customer classifications and derived KPIs
+-----------------------------------------------------------------------------*/
 SELECT
     customer_key,
     customer_number,
