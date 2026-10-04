@@ -1,0 +1,144 @@
+/*
+===============================================================================
+Customer Report
+===============================================================================
+
+Purpose:
+    Generate a customer-level sales report containing:
+    - Customer demographics
+    - Customer segmentation
+    - Recency
+    - Order and sales metrics
+    - Customer lifespan
+    - Average order value
+    - Average monthly spend
+
+Final Grain:
+    One row per customer.
+
+Database:
+    Microsoft SQL Server / T-SQL
+===============================================================================
+*/
+
+;WITH sales_base AS
+(
+    SELECT
+        fs.order_number,
+        fs.product_key,
+        fs.order_date,
+        fs.sales_amount,
+        fs.quantity,
+        c.customer_key,
+        c.customer_number,
+        CONCAT(c.first_name, ' ', c.last_name) AS customer_name,
+
+        -- Calculate completed age rather than calendar-year difference only.
+        DATEDIFF(YEAR, c.birthdate, GETDATE())
+        - CASE
+            WHEN DATEADD(
+                    YEAR,
+                    DATEDIFF(YEAR, c.birthdate, GETDATE()),
+                    c.birthdate
+                 ) > GETDATE()
+                THEN 1
+            ELSE 0
+          END AS age
+    FROM gold.fact_sales AS fs
+    LEFT JOIN gold.dim_customers AS c
+        ON c.customer_key = fs.customer_key
+    WHERE fs.order_date IS NOT NULL
+),
+
+customer_aggregation AS
+(
+    SELECT
+        customer_key,
+        customer_number,
+        customer_name,
+        age,
+
+        -- Distinct order count prevents order-line grain from inflating orders.
+        COUNT(DISTINCT order_number) AS total_orders,
+
+        SUM(sales_amount) AS total_sales,
+        SUM(quantity) AS total_quantity,
+        COUNT(DISTINCT product_key) AS total_products,
+
+        MAX(order_date) AS last_order_date,
+
+        -- Inclusive customer activity span in calendar months.
+        DATEDIFF(
+            MONTH,
+            MIN(order_date),
+            MAX(order_date)
+        ) + 1 AS lifespan_months
+    FROM sales_base
+    GROUP BY
+        customer_key,
+        customer_number,
+        customer_name,
+        age
+)
+
+SELECT
+    customer_key,
+    customer_number,
+    customer_name,
+    age,
+
+    /* Customer age band */
+    CASE
+        WHEN age IS NULL THEN 'Unknown'
+        WHEN age < 20 THEN 'Under 20'
+        WHEN age BETWEEN 20 AND 29 THEN '20-29'
+        WHEN age BETWEEN 30 AND 39 THEN '30-39'
+        WHEN age BETWEEN 40 AND 49 THEN '40-49'
+        ELSE '50 and above'
+    END AS age_group,
+
+    /* Customer business segment */
+    CASE
+        WHEN lifespan_months >= 12
+             AND total_sales > 5000
+            THEN 'VIP'
+
+        WHEN lifespan_months >= 12
+             AND total_sales <= 5000
+            THEN 'Regular'
+
+        WHEN lifespan_months < 12
+             AND total_sales > 10000
+            THEN 'Great'
+
+        ELSE 'New'
+    END AS customer_segment,
+
+    last_order_date,
+
+    -- Number of calendar month boundaries since the customer's latest order.
+    DATEDIFF(
+        MONTH,
+        last_order_date,
+        GETDATE()
+    ) AS recency_months,
+
+    total_orders,
+    total_sales,
+    total_quantity,
+    total_products,
+    lifespan_months,
+
+    -- Revenue generated per distinct order.
+    COALESCE(
+        total_sales / NULLIF(total_orders, 0),
+        0
+    ) AS average_order_value,
+
+    -- Average sales generated per active customer month.
+    COALESCE(
+        total_sales / NULLIF(lifespan_months, 0),
+        0
+    ) AS average_monthly_spend
+
+FROM customer_aggregation;
