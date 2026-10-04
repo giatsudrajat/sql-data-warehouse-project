@@ -18,10 +18,19 @@ Final Grain:
 
 Database:
     Microsoft SQL Server / T-SQL
+
+Business Assumptions:
+    - order_number uniquely identifies a business order.
+    - fact_sales may contain multiple rows per order.
+    - lifespan_months is inclusive, so activity within one calendar month
+      produces a lifespan of 1 month.
 ===============================================================================
 */
 
-;WITH sales_base AS
+CREATE OR ALTER VIEW gold.report_customer
+AS
+
+WITH sales_base AS
 (
     SELECT
         fs.order_number,
@@ -33,20 +42,23 @@ Database:
         c.customer_number,
         CONCAT(c.first_name, ' ', c.last_name) AS customer_name,
 
-        -- Calculate completed age rather than calendar-year difference only.
+        -- Calculate completed age instead of only counting year boundaries.
         DATEDIFF(YEAR, c.birthdate, GETDATE())
         - CASE
             WHEN DATEADD(
                     YEAR,
                     DATEDIFF(YEAR, c.birthdate, GETDATE()),
                     c.birthdate
-                 ) > GETDATE()
+                ) > GETDATE()
                 THEN 1
             ELSE 0
           END AS age
+
     FROM gold.fact_sales AS fs
     LEFT JOIN gold.dim_customers AS c
         ON c.customer_key = fs.customer_key
+
+    -- Exclude sales rows without a valid order date from customer metrics.
     WHERE fs.order_date IS NOT NULL
 ),
 
@@ -58,7 +70,7 @@ customer_aggregation AS
         customer_name,
         age,
 
-        -- Distinct order count prevents order-line grain from inflating orders.
+        -- Prevent order-line grain from inflating the order count.
         COUNT(DISTINCT order_number) AS total_orders,
 
         SUM(sales_amount) AS total_sales,
@@ -67,13 +79,15 @@ customer_aggregation AS
 
         MAX(order_date) AS last_order_date,
 
-        -- Inclusive customer activity span in calendar months.
+        -- Inclusive span of customer activity in calendar months.
         DATEDIFF(
             MONTH,
             MIN(order_date),
             MAX(order_date)
         ) + 1 AS lifespan_months
+
     FROM sales_base
+
     GROUP BY
         customer_key,
         customer_number,
@@ -87,7 +101,7 @@ SELECT
     customer_name,
     age,
 
-    /* Customer age band */
+    -- Customer demographic age band.
     CASE
         WHEN age IS NULL THEN 'Unknown'
         WHEN age < 20 THEN 'Under 20'
@@ -97,7 +111,7 @@ SELECT
         ELSE '50 and above'
     END AS age_group,
 
-    /* Customer business segment */
+    -- Customer segment based on lifespan and total sales.
     CASE
         WHEN lifespan_months >= 12
              AND total_sales > 5000
@@ -116,7 +130,7 @@ SELECT
 
     last_order_date,
 
-    -- Number of calendar month boundaries since the customer's latest order.
+    -- Number of calendar month boundaries since the latest order.
     DATEDIFF(
         MONTH,
         last_order_date,
@@ -129,7 +143,7 @@ SELECT
     total_products,
     lifespan_months,
 
-    -- Revenue generated per distinct order.
+    -- Average revenue generated per distinct order.
     COALESCE(
         total_sales / NULLIF(total_orders, 0),
         0
@@ -142,3 +156,4 @@ SELECT
     ) AS average_monthly_spend
 
 FROM customer_aggregation;
+GO
