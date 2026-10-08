@@ -14,7 +14,7 @@ Purpose:
     - Average monthly spend
 
 Final Grain:
-    One row per customer_key.
+    One row per known customer_key, plus one NULL-key group for unmatched sales.
 
 Database:
     Microsoft SQL Server / T-SQL
@@ -48,11 +48,13 @@ WITH sales_base AS
         fs.sales_amount,
         fs.quantity,
 
-        -- Use the fact-side key so unmatched sales remain independently grouped.
+        -- Retain unmatched sales in the NULL-key group.
+        -- Original customer IDs are not exposed by gold.fact_sales.
         fs.customer_key,
 
         c.customer_number,
-        CONCAT(c.first_name, ' ', c.last_name) AS customer_name,
+        COALESCE(NULLIF(TRIM(CONCAT(c.first_name, ' ', c.last_name)), ''),
+                 'Unknown') AS customer_name,
 
         -- Calculate completed age instead of only counting year boundaries.
         DATEDIFF(YEAR, c.birthdate, GETDATE())
@@ -88,8 +90,8 @@ customer_aggregation AS
         -- Prevent order-line grain from inflating the order count.
         COUNT(DISTINCT order_number) AS total_orders,
 
-        SUM(sales_amount) AS total_sales,
-        SUM(quantity) AS total_quantity,
+        SUM(CAST(sales_amount AS BIGINT)) AS total_sales,
+        SUM(CAST(quantity AS BIGINT)) AS total_quantity,
         COUNT(DISTINCT product_key) AS total_products,
 
         MAX(order_date) AS last_order_date,
@@ -162,15 +164,15 @@ SELECT
     lifespan_months,
 
     -- Average revenue generated per distinct order.
-    COALESCE(
-        total_sales / NULLIF(total_orders, 0),
-        0
+    CAST(
+        CAST(total_sales AS DECIMAL(28, 4)) / NULLIF(total_orders, 0)
+        AS DECIMAL(28, 2)
     ) AS average_order_value,
 
-    -- Average sales generated per active customer month.
-    COALESCE(
-        total_sales / NULLIF(lifespan_months, 0),
-        0
+    -- Average sales per month in the inclusive first-to-last-order span.
+    CAST(
+        CAST(total_sales AS DECIMAL(28, 4)) / NULLIF(lifespan_months, 0)
+        AS DECIMAL(28, 2)
     ) AS average_monthly_spend
 
 FROM customer_aggregation;

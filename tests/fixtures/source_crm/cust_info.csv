@@ -1,0 +1,5 @@
+cst_id,cst_key,cst_firstname,cst_lastname,cst_marital_status,cst_gndr,cst_create_date
+1,AW0001, Ana ,Old,S,F,2024-01-01
+1,AW0001,Ana,Latest,M,F,2024-02-01
+2,AW0002,Ben,Two,S,M,2024-01-01
+3,AW0003,Cara,Three,S,F,2024-01-01

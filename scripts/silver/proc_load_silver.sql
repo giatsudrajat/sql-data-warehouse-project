@@ -23,6 +23,8 @@ Usage Example:
 CREATE OR ALTER PROCEDURE silver.load_silver
 AS
 BEGIN
+    SET NOCOUNT ON;
+
     DECLARE
         @start_time       DATETIME,
         @end_time         DATETIME,
@@ -463,6 +465,8 @@ BEGIN
         PRINT 'Error State: ' + CAST(ERROR_STATE() AS NVARCHAR);
         PRINT '========================================';
 
+        -- Propagate failures to the caller and command-line/CI tools.
+        THROW;
     END CATCH;
 END;
 GO

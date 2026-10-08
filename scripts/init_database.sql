@@ -10,7 +10,7 @@ Script Purpose:
 
 Warning:
     Running this script will drop the entire 'DataWarehouse' database if it exists. ALL data in
-    the database will be permanently deleted. Procees with caution an ensure you have proper
+    the database will be permanently deleted. Proceed with caution and ensure you have proper
     backups before running this script.
 */
 
@@ -18,7 +18,7 @@ USE master;
 GO
   
 -- Drop and recreate the 'DataWarehouse' database
-IF EXISTS (SELECT 1 FROM sys.database WHERE name = 'DataWarehouse')
+IF EXISTS (SELECT 1 FROM sys.databases WHERE name = 'DataWarehouse')
 BEGIN
     ALTER DATABASE DataWarehouse SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
     DROP DATABASE DataWarehouse;

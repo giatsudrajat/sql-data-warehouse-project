@@ -1,0 +1,43 @@
+name: SQL regression
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sql-server:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: Y
+          MSSQL_SA_PASSWORD: Regression-Only-2026!
+        options: >-
+          --health-cmd="/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'Regression-Only-2026!' -C -Q 'SELECT 1' -b"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=20
+          --health-start-period=30s
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Copy project and synthetic source fixtures
+        env:
+          SQLSERVER_CONTAINER: ${{ job.services.sqlserver.id }}
+        run: |
+          docker exec -u 0 "$SQLSERVER_CONTAINER" mkdir -p /workspace /var/opt/mssql/datasets
+          docker cp . "$SQLSERVER_CONTAINER:/workspace"
+          docker cp tests/fixtures/. "$SQLSERVER_CONTAINER:/var/opt/mssql/datasets/"
+          docker exec -u 0 "$SQLSERVER_CONTAINER" chmod -R a+rX /workspace /var/opt/mssql/datasets
+      - name: Run actual T-SQL pipeline and regression assertions
+        env:
+          SQLSERVER_CONTAINER: ${{ job.services.sqlserver.id }}
+        run: |
+          docker exec -w /workspace "$SQLSERVER_CONTAINER" /opt/mssql-tools18/bin/sqlcmd \
+            -S localhost -U sa -P 'Regression-Only-2026!' -C -b -i tests/run_regression.sql
