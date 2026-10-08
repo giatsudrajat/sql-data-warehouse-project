@@ -54,7 +54,7 @@ FROM gold.fact_sales;
 
 -- Calculate the unweighted average selling price per fact row
 SELECT
-    AVG(price) AS average_price
+    AVG(CAST(price AS DECIMAL(19, 4))) AS average_price
 FROM gold.fact_sales;
 
 
@@ -107,7 +107,7 @@ WITH fact_measures AS (
     SELECT
         SUM(sales_amount) AS total_sales,
         SUM(quantity) AS total_quantity,
-        AVG(price) AS average_price,
+        AVG(CAST(price AS DECIMAL(19, 4))) AS average_price,
         COUNT(DISTINCT order_number) AS total_orders
     FROM gold.fact_sales
 ),

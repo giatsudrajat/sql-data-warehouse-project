@@ -71,66 +71,21 @@ Business Rules:
         All remaining customers.
 
 Notes:
-    - Total spending is calculated across all recorded sales.
-    - Customer lifespan is measured between the first and last order.
-    - DATEDIFF(MONTH) counts calendar-month boundaries.
-    - Only customers with recorded sales are included.
-    - Only customers with recorded sales and matching customer
-    - Dimension records are included.
+    - Run report_customers.sql first to create gold.report_customer.
+    - Reuse its inclusive lifespan, thresholds, LEFT JOIN, and valid-date filter.
+    - total_customers counts known customer keys only.
+    - unknown_customer_groups identifies the retained NULL-key bucket; it is not
+      a count of distinct customers whose identities are unknown.
 ===============================================================================
 */
 
-;WITH customer_spending AS (
-    SELECT
-        c.customer_key,
-        SUM(fs.sales_amount) AS total_spending,
-        MIN(fs.order_date) AS first_order_date,
-        MAX(fs.order_date) AS last_order_date,
-        DATEDIFF(
-            MONTH,
-            MIN(fs.order_date),
-            MAX(fs.order_date)
-        ) AS life_span_months
-    FROM gold.fact_sales AS fs
-    INNER JOIN gold.dim_customers AS c
-        ON fs.customer_key = c.customer_key
-    GROUP BY
-        c.customer_key
-),
-
-customer_segments AS (
-    SELECT
-        customer_key,
-        CASE
-            WHEN life_span_months >= 12
-                 AND total_spending > 5000
-                THEN 'VIP'
-
-            WHEN life_span_months >= 12
-                 AND total_spending <= 5000
-                THEN 'Regular'
-
-            WHEN life_span_months < 12
-                 AND total_spending > 10000
-                THEN 'Great'
-
-            ELSE 'New'
-        END AS customer_segment
-    FROM customer_spending
-)
-
 SELECT
     customer_segment,
-    COUNT(*) AS total_customers
-FROM customer_segments
+    COUNT(customer_key) AS total_customers,
+    COUNT(*) - COUNT(customer_key) AS unknown_customer_groups
+FROM gold.report_customer
 GROUP BY
     customer_segment
 ORDER BY
     total_customers DESC,
     customer_segment;
-
-/*
-===============================================================================
-END OF DATA SEGMENTATION
-===============================================================================
-*/

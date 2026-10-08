@@ -1,0 +1,5 @@
+prd_id,prd_key,prd_nm,prd_cost,prd_line,prd_start_dt,prd_end_dt
+10,BI-RB-P1,Test Road,10,R,2024-01-01,
+20,CO-AC-P2,Test Helmet,20,S,2024-01-01,
+30,BI-RB-P3,Test History Old,30,R,2023-01-01,2023-12-31
+31,BI-RB-P3,Test History Current,35,R,2024-01-01,

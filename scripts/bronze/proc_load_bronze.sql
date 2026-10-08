@@ -22,6 +22,8 @@ Usage Example:
 CREATE OR ALTER PROCEDURE bronze.load_bronze
 AS
 BEGIN
+    SET NOCOUNT ON;
+
     DECLARE
         @start_time       DATETIME,
         @end_time         DATETIME,
@@ -57,6 +59,7 @@ BEGIN
         WITH (
             FIRSTROW = 2,
             FIELDTERMINATOR = ',',
+            ROWTERMINATOR = '0x0a',
             TABLOCK
         );
 
@@ -85,6 +88,7 @@ BEGIN
         WITH (
             FIRSTROW = 2,
             FIELDTERMINATOR = ',',
+            ROWTERMINATOR = '0x0a',
             TABLOCK
         );
 
@@ -113,6 +117,7 @@ BEGIN
         WITH (
             FIRSTROW = 2,
             FIELDTERMINATOR = ',',
+            ROWTERMINATOR = '0x0a',
             TABLOCK
         );
 
@@ -150,6 +155,7 @@ BEGIN
         WITH (
             FIRSTROW = 2,
             FIELDTERMINATOR = ',',
+            ROWTERMINATOR = '0x0a',
             TABLOCK
         );
 
@@ -178,6 +184,7 @@ BEGIN
         WITH (
             FIRSTROW = 2,
             FIELDTERMINATOR = ',',
+            ROWTERMINATOR = '0x0a',
             TABLOCK
         );
 
@@ -206,6 +213,7 @@ BEGIN
         WITH (
             FIRSTROW = 2,
             FIELDTERMINATOR = ',',
+            ROWTERMINATOR = '0x0a',
             TABLOCK
         );
 
@@ -248,11 +256,12 @@ BEGIN
         PRINT 'Error State: ' + CAST(ERROR_STATE() AS NVARCHAR);
         PRINT '========================================';
 
+        -- Propagate failures to the caller and command-line/CI tools.
+        THROW;
     END CATCH;
 END;
 GO
 
 
--- Execute Bronze Layer Load
-EXEC bronze.load_bronze;
-GO
+-- Deploying this file only defines the procedure.
+-- After preparing the source files, run: EXEC bronze.load_bronze;

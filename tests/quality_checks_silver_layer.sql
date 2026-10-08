@@ -105,8 +105,8 @@ WHERE prd_end_dt < prd_start_dt;
 -- Checking 'silver.crm_sales_details'
 -- ============================================================
 
--- Check for invalid raw due-date values
--- Expectation: No Invalid Dates
+-- Profile invalid raw due-date values in Bronze
+-- Diagnostic only: dirty raw rows may be returned; validate cleaned Silver separately.
 SELECT
     NULLIF(sls_due_dt, 0) AS sls_due_date
 FROM bronze.crm_sales_details
@@ -122,7 +122,8 @@ SELECT
     *
 FROM silver.crm_sales_details
 WHERE sls_order_dt > sls_ship_dt
-    OR sls_order_dt > sls_due_dt;
+    OR sls_order_dt > sls_due_dt
+    OR sls_ship_dt > sls_due_dt;
 
 
 -- Check data consistency: Sales = Quantity * Price

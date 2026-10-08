@@ -37,7 +37,7 @@ WITH YearlySales AS (
         DATETRUNC(year, order_date) AS order_year,
 
         SUM(sales_amount) AS total_sales,
-        AVG(price) AS avg_price
+        AVG(CAST(price AS DECIMAL(19, 4))) AS avg_price
 
     FROM gold.fact_sales
 

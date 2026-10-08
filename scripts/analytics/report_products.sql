@@ -7,7 +7,7 @@ Purpose:
     customer activity, recency, segmentation, and revenue metrics.
 
 Output Grain:
-    One row per product.
+    One row per known product_key, plus one NULL-key group for unmatched sales.
 ===============================================================================
 */
 
@@ -19,8 +19,8 @@ WITH base_query AS (
     1) Base Query
        Retrieves sales transactions and related product attributes.
 
-       The product key is taken from the fact table so sales remain identifiable
-       even when the corresponding dimension record is missing.
+       Unmatched sales are retained in one NULL-key group.
+       Original product numbers are not exposed by gold.fact_sales.
     ---------------------------------------------------------------------------*/
     SELECT
         fs.order_number,
@@ -51,7 +51,7 @@ product_aggregation AS (
         sub_category,
         cost,
 
-        -- Number of calendar months in which the product has been active
+        -- Inclusive first-to-last-sale span, including months without sales
         DATEDIFF(
             MONTH,
             MIN(order_date),
@@ -63,8 +63,8 @@ product_aggregation AS (
         COUNT(DISTINCT order_number) AS total_orders,
         COUNT(DISTINCT customer_key) AS total_customers,
 
-        SUM(sales_amount) AS total_sales,
-        SUM(quantity) AS total_quantity,
+        SUM(CAST(sales_amount AS BIGINT)) AS total_sales,
+        SUM(CAST(quantity AS BIGINT)) AS total_quantity,
 
         -- Weighted average selling price per unit
         CAST(
@@ -111,6 +111,7 @@ SELECT
     END AS product_segment,
 
     last_sale_date,
+    lifespan_months,
     total_orders,
     total_customers,
     total_sales,
@@ -124,7 +125,7 @@ SELECT
         AS DECIMAL(18, 2)
     ) AS avg_order_revenue,
 
-    -- Average revenue generated per active calendar month
+    -- Average revenue per month in the inclusive first-to-last-sale span
     CAST(
         CAST(total_sales AS DECIMAL(18, 2))
         / NULLIF(lifespan_months, 0)
